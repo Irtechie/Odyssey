@@ -1,0 +1,16 @@
+services:
+  odyssey-chad:
+    build:
+      context: .
+      dockerfile: Dockerfile.chad
+    container_name: odyssey-chad
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./conf/config.json:/app/Odyssey/conf/config.json:ro
+      - ./run_chad.py:/app/Odyssey/run_chad.py:ro
+      - ./skill_library:/app/Odyssey/skill_library
+      - ../MC-Comprehensive-Skill-Library:/app/MC-Comprehensive-Skill-Library:ro
+      - ./ckpt-chad:/app/Odyssey/ckpt

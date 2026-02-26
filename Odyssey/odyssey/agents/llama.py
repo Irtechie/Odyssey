@@ -8,10 +8,8 @@
 import requests
 
 from http import HTTPStatus
-import json
 import dashscope
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
-from pathlib import Path
+from langchain.schema import AIMessage
 from odyssey.utils import config
 # with open(Path(__file__).parent.parent.parent / "conf/config.json", "r") as config_file:
 #     config = json.load(config_file)
@@ -26,20 +24,33 @@ class ModelType:
     BAICHUAN2_7B = 'baichuan2-7b'
 
 def call_with_messages(msgs, model_name:ModelType=ModelType.LLAMA3_8B_V3):
-    url = f'http://{config.get("server_host")}:{config.get("server_port")}/{model_name}'
-    input_msg = {
-        "user_prompt": msgs[1].content,
-        "system_prompt": msgs[0].content
+    host = config.get("server_host")
+    port = config.get("server_port")
+    base_path = config.get("openai_base_path") or "/v1"
+    model_override = config.get("openai_model")
+    model_id = model_override or model_name
+    url = f"http://{host}:{port}{base_path}/chat/completions"
+    payload = {
+        "model": model_id,
+        "messages": [
+            {"role": "system", "content": msgs[0].content},
+            {"role": "user", "content": msgs[1].content},
+        ],
+        "temperature": 0,
     }
-    # print(input_msg)
-    result = requests.post(url, json = input_msg)
-    # if result.status_code != HTTPStatus.OK:
-    #     return AIMessage(content="")
+    result = requests.post(url, json=payload, timeout=240)
+    if result.status_code >= 400 and not model_override:
+        models_url = f"http://{host}:{port}{base_path}/models"
+        models_resp = requests.get(models_url, timeout=30)
+        models_resp.raise_for_status()
+        models = models_resp.json().get("data", [])
+        if models:
+            payload["model"] = models[0]["id"]
+            result = requests.post(url, json=payload, timeout=240)
+    result.raise_for_status()
     json_result = result.json()
-    # if json_result['data'] is None:
-    #     return AIMessage(content="")
-    # print(json_result)
-    return AIMessage(content=json_result["data"])
+    content = json_result["choices"][0]["message"]["content"]
+    return AIMessage(content=content)
 
 def call_with_messages_(msgs):
     dashscope.api_key = config.get("api_key")  # API KEY

@@ -245,8 +245,10 @@ class VoyagerEnv(gym.Env):
             if res.status_code == 200:
                 self.server_paused = True
             else:
-                self.logger.warning(f"Failed to pause Minecraft server {res.status_code}")
-                raise RuntimeError("Failed to pause Minecraft server")
+                # Paper setups without the expected pause mod return 400 here.
+                # Continue execution without pause support instead of crashing.
+                self.logger.warning(f"Pause unsupported or failed ({res.status_code}); continuing without pause")
+                self.server_paused = False
         return self.server_paused
 
     @retry(retry_count=3)
@@ -256,7 +258,7 @@ class VoyagerEnv(gym.Env):
             if res.status_code == 200:
                 self.server_paused = False
             else:
-                self.logger.warning(f"Failed to unpause Minecraft server {res.status_code}")
-                raise RuntimeError("Failed to unpause Minecraft server")
+                self.logger.warning(f"Unpause unsupported or failed ({res.status_code}); continuing")
+                self.server_paused = False
                     
         return self.server_paused
